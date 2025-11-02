@@ -15,7 +15,7 @@ from matplotlib.gridspec import GridSpec
 
 plt.close("all")
 
-def Cargar_Ecg(nombre_archivo):
+def Cargar_Ecg(nombre_archivo,val,lead = None,qrs_detections = None):
     """
     Carga un archivo .mat con la variable 'ecg_lead' y devuelve la señal y su longitud.
 
@@ -23,11 +23,19 @@ def Cargar_Ecg(nombre_archivo):
     -----------
     nombre_archivo : str
                     Nombre del archivo .mat (por ejemplo 'ecg.mat')
+    val : str
+                    Nombre del dict donde se encuentra la ECG
+    led : int (optional)
+                    Derivacion que necesites (0 to 11)
+    qrs_detections : str (optional)
+                    Nombre del dict donde se encuentra los indices de los picos R reales
 
     Returns
     --------
     ecg_one_lead : np.ndarray
                     Vector con la señal ECG (aplanado)
+    picos_reales : np.ndarray
+                    Indices de los picos reales de la ECG
     cant_muestras : int
                     Cantidad de muestras del vector
     """
@@ -40,15 +48,19 @@ def Cargar_Ecg(nombre_archivo):
     
     mat_struct = sio.loadmat(nombre_archivo)
     
-    if 'ecg_lead' not in mat_struct:
-        raise KeyError('El archivo no contiene la variable "ecg_lead"')
-        
     # Extraer  la señal
-    ecg_one_lead = mat_struct['ecg_lead'].flatten()
+    ecg_one_lead = mat_struct[val].flatten()
+    ecg_one_lead = np.asarray(ecg_one_lead)
     
-    # Extraer picos reales
-    picos_reales = mat_struct['qrs_detections'].flatten()
-    
+    # Extraer picos reales si los tiene
+    if qrs_detections is not None:
+        picos_reales = mat_struct[qrs_detections].flatten()
+        
+    # Extraer derivaciones si las tiene
+    if lead is not None:
+        ecg_one_lead =  mat_struct[val][lead,:]
+        ecg_one_lead = np.asarray(ecg_one_lead)
+        
     #Cantidad de Muestras
     cant_muestras = len(ecg_one_lead)
 
@@ -381,7 +393,7 @@ def Metricas(conf_matrix):
     
     return precision, recall, f1, accuracy
 
-ecg_one_lead, picos_reales, cant_muestras = Cargar_Ecg('ecg.mat')
+ecg_one_lead, picos_reales, cant_muestras = Cargar_Ecg('ecg.mat','ecg_lead',qrs_detections= 'qrs_detections')
 ecg_golay = Removedor_DC(ecg_one_lead, D=64, N=20, window_length=101, polyorder=9)
 peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, percentile=30, trgt_width=0.09, trgt_min_pattern_separation=0.3)
 Graficar_ecg_detallado(ecg_golay,peaks_R_AIP,fs=1000,time=None)
