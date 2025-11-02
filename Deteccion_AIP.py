@@ -48,8 +48,11 @@ def Cargar_Ecg(nombre_archivo):
     
     # Extraer picos reales
     picos_reales = mat_struct['qrs_detections'].flatten()
+    
+    #Cantidad de Muestras
+    cant_muestras = len(ecg_one_lead)
 
-    return ecg_one_lead, picos_reales
+    return ecg_one_lead, picos_reales,cant_muestras
 def Removedor_DC(ecg, D=64, N=20, window_length=101, polyorder=9):
     """
     Aplica un filtro de removedor de DC de Fase lineal
@@ -307,11 +310,77 @@ def Graficar_ecg_detallado(ecg,peaks_R,fs,time=None):
         
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
+def Matriz_De_Confusion(peaks_R,true_peaks,tol,cant_muestras):
+    """
+   Calcula VP, VN, FP y FN 
+   
+   Parámetros:
+   -----------
+   peaks_R :  np.ndarray
+       Índices predecidos
+   true_peaks :  np.ndarray
+       Índices verdaderos (ground truth)
+   tol : int
+       Tolerancia máxima (en muestras) para considerar una coincidencia como TP
+   
+   Retorna:
+   --------
+   VP_idx : lista
+       Índices de verdaderos positivos
+   VN_idx : lista
+       Índices de verdaderos negativos       
+   FP_idx : lista
+       Índices de falsos positivos
+   FN_idx : lista
+       Índices de falsos negativos
+   """
+    VP_idx = []
+    VN_idx = []
+    FP_idx = []
+    FN_idx = []
 
+    matched = np.zeros(len(true_peaks), dtype=bool)
 
-ecg_one_lead, picos_reales = Cargar_Ecg('ecg.mat')
+    for p in peaks_R:
+        # calcular la distancia mínima a un real
+        diffs = np.abs(true_peaks - p)
+        min_dist = np.min(diffs)
+        idx_min = np.argmin(diffs)
+
+        if min_dist <= tol and not matched[idx_min]:
+            VP_idx.append(p)
+            matched[idx_min] = True
+        else:
+            FP_idx.append(p)
+
+    # FN = reales que no fueron emparejados
+    FN_idx = list(true_peaks[~matched])
+
+    VN_idx = cant_muestras - (len(VP_idx) + len(FP_idx) + len(FN_idx))
+    
+    #Matriz de confusion
+    confusion_matrix = np.array([[len(VP_idx), len(FP_idx)],
+                                 [len(FN_idx), VN_idx]])
+    
+    return VP_idx, VN_idx, FP_idx,FN_idx, confusion_matrix
+def Metricas(conf_matrix):
+    """
+    Calcula precisión, recall y F1 a partir de la matriz de confusión.
+    
+    """
+    VN, FP, FN, VP = conf_matrix.ravel()
+    precision = VP / (VP + FP) if (VP + FP) else 0
+    recall = VP / (VP + FN) if (VP + FN) else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
+    accuracy = (VP + VN) / np.sum(conf_matrix) if np.sum(conf_matrix) else 0
+    
+    return precision, recall, f1, accuracy
+
+ecg_one_lead, picos_reales, cant_muestras = Cargar_Ecg('ecg.mat')
 ecg_golay = Removedor_DC(ecg_one_lead, D=64, N=20, window_length=101, polyorder=9)
 peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, trgt_width=0.09, trgt_min_pattern_separation=0.3)
 Graficar_ecg_detallado(ecg_golay,peaks_R_AIP,fs=1000,time=None)
+VP, VN, FP, FN, conf = Matriz_De_Confusion(peaks_R_AIP, picos_reales, tol=10,cant_muestras = cant_muestras)
+precision, recall, f1, acc = Metricas(conf)
 
 
