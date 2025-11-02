@@ -96,18 +96,21 @@ def Removedor_DC(ecg, D=64, N=20, window_length=101, polyorder=9):
     Den[N] = -2
     Den[2*N] = 1
 
-    # ---- Aplicar filtro ----
-    ECG_filtrado = sig.lfilter(Num, Den, ecg)
-
-    # ---- Suavizado Savitzky-Golay ----
+    # Se agregan muestras en los extremos para no perder muestras debido al retardo
+    delay = D*N
+    ecg_padded = np.pad(ecg, (delay,delay), mode='edge')
+ 
+    # Aplicar filtro
+    ECG_filtrado = sig.lfilter(Num, Den, ecg_padded)
+    
+    #Suavizado Savitzky-Golay
     ECG_Golay = sig.savgol_filter(ECG_filtrado, window_length, polyorder)
     
-    # ---- Quita el retardo ----
-    delay_pos =  int(2/2* (D - 1) * N)
-    ECG_Golay = np.roll(ECG_Golay, -delay_pos)
+    #Recorte final
+    ECG_Golay = ECG_Golay[2*delay : len(ECG_Golay) ]
 
     return ECG_Golay
-def Detectar_picos_R_AIP(ecg, fs, trgt_width=0.06, trgt_min_pattern_separation=0.3):
+def Detectar_picos_R_AIP(ecg, fs, percentile=30, trgt_width=0.06, trgt_min_pattern_separation=0.3):
     """
     Detección de picos R basada en un detector tipo AIP (impulsivo pseudoperiódico).
     
@@ -117,6 +120,8 @@ def Detectar_picos_R_AIP(ecg, fs, trgt_width=0.06, trgt_min_pattern_separation=0
         Señal ECG (ya filtrada).
     fs : float
         Frecuencia de muestreo en Hz.
+    percentile : float
+            Porcentil del Rise Detector.
     trgt_width : float
         Duración aproximada del complejo QRS en segundos.
     trgt_min_pattern_separation : float
@@ -141,7 +146,7 @@ def Detectar_picos_R_AIP(ecg, fs, trgt_width=0.06, trgt_min_pattern_separation=0
     rise_detector = filtfilt(np.ones(lp_size)/lp_size, 1, np.abs(rise_detector))
     rise_detector = filtfilt(np.ones(lp_size)/lp_size, 1, rise_detector)
     
-    thr = np.percentile(rise_detector, 30)
+    thr = np.percentile(rise_detector, percentile)
 
     # Detectar máximos locales que superen el umbral
     min_distance = int(trgt_min_pattern_separation * fs)
@@ -252,7 +257,7 @@ def Graficar_ecg_detallado(ecg,peaks_R,fs,time=None):
     fig.suptitle("Visualización detallada del ECG con Poincaré", fontsize=16)
     
     # Señal completa
-    #ax_full.plot(time, ecg, color='gold') Si quiero ver la señal, descomentar
+    ax_full.plot(time, ecg, color='gold') #Si quiero ver la señal, descomentar
     if peaks_R is not None:
         ax_full.plot(time[peaks_R], ecg[peaks_R], 'ro', label='Picos R')
     ax_full.set_title("ECG completo")
@@ -378,9 +383,9 @@ def Metricas(conf_matrix):
 
 ecg_one_lead, picos_reales, cant_muestras = Cargar_Ecg('ecg.mat')
 ecg_golay = Removedor_DC(ecg_one_lead, D=64, N=20, window_length=101, polyorder=9)
-peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, trgt_width=0.09, trgt_min_pattern_separation=0.3)
+peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, percentile=30, trgt_width=0.09, trgt_min_pattern_separation=0.3)
 Graficar_ecg_detallado(ecg_golay,peaks_R_AIP,fs=1000,time=None)
-VP, VN, FP, FN, conf = Matriz_De_Confusion(peaks_R_AIP, picos_reales, tol=10,cant_muestras = cant_muestras)
+VP, VN, FP, FN, conf = Matriz_De_Confusion(peaks_R_AIP, picos_reales, tol=30,cant_muestras = cant_muestras)
 precision, recall, f1, acc = Metricas(conf)
 
 
