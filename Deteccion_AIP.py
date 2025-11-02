@@ -43,13 +43,13 @@ def Cargar_Ecg(nombre_archivo):
     if 'ecg_lead' not in mat_struct:
         raise KeyError('El archivo no contiene la variable "ecg_lead"')
         
-        # Extraer y aplanar la señal
+    # Extraer  la señal
     ecg_one_lead = mat_struct['ecg_lead'].flatten()
     
-    # Contar muestras
-    cant_muestras = len(ecg_one_lead)
+    # Extraer picos reales
+    picos_reales = mat_struct['qrs_detections'].flatten()
 
-    return ecg_one_lead, cant_muestras
+    return ecg_one_lead, picos_reales
 def Removedor_DC(ecg, D=64, N=20, window_length=101, polyorder=9):
     """
     Aplica un filtro de removedor de DC de Fase lineal
@@ -309,7 +309,7 @@ def Graficar_ecg_detallado(ecg,peaks_R,fs,time=None):
     plt.show()
 
 
-ecg_one_lead, cant_muestras = Cargar_Ecg('ecg.mat')
+ecg_one_lead, picos_reales = Cargar_Ecg('ecg.mat')
 ecg_golay = Removedor_DC(ecg_one_lead, D=64, N=20, window_length=101, polyorder=9)
 peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, trgt_width=0.09, trgt_min_pattern_separation=0.3)
 Graficar_ecg_detallado(ecg_golay,peaks_R_AIP,fs=1000,time=None)
