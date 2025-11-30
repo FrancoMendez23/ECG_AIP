@@ -15,7 +15,7 @@ Este repositorio contiene un pipeline completo para:
 El archivo principal (`Deteccion_AIP.py`) incluye:
 
 ### ✔ `Cargar_Ecg`
-Carga señales ECG desde un archivo `.mat`, permitiendo seleccionar derivaciones y extraer picos reales si se incluyen en el dataset.
+Carga señales ECG desde un archivo `.mat`o`.dat`, permitiendo seleccionar derivaciones y extraer picos reales si se incluyen en el dataset.
 
 ### ✔ `Removedor_DC`
 Filtrado de componente DC basado en un filtro lineal de fase lineal de Rick Lions + suavizado Savitzky-Golay.
