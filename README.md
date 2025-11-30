@@ -2,7 +2,7 @@
 
 Este repositorio contiene un pipeline completo para:
 
-- Cargar señales ECG desde archivos `.mat`
+- Cargar señales ECG desde archivos `.mat` o `.dat`
 - Eliminar componente DC y suavizar la señal mediante un filtro lineal + Savitzky-Golay
 - Detectar picos R usando un detector AIP (Impulsivo Pseudoperiódico)
 - Visualizar el ECG con zoom interactivo + gráfico de Poincaré
