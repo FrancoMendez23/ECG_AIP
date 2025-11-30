@@ -9,33 +9,47 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import scipy.io as sio
+import wfdb
+import os
 from scipy.signal import find_peaks, windows, filtfilt
 from matplotlib.widgets import SpanSelector
 from matplotlib.gridspec import GridSpec
 
 plt.close("all")
 
-def Cargar_Ecg(nombre_archivo,val,lead = None,qrs_detections = None):
+def Cargar_Ecg(nombre_archivo,val = None,lead = None,qrs_detections = None):
     """
-    Carga un archivo .mat con la variable 'ecg_lead' y devuelve la señal y su longitud.
+    Carga una señal ECG desde archivo .mat o un registro WFDB (.hea/.dat),
+    devolviendo la derivación seleccionada, los picos reales (si existen)
+    y la cantidad de muestras.
 
     Parameters
     -----------
     nombre_archivo : str
-                    Nombre del archivo .mat (por ejemplo 'ecg.mat')
+        Nombre del archivo a cargar. Puede ser:
+        - Un archivo .mat (por ejemplo 'ecg.mat')
+        - Un archivo WFDB (.hea o .dat), por ejemplo '01.hea'
+        .
     val : str
-                    Nombre del dict donde se encuentra la ECG
+        Nombre de la variable dentro del archivo .mat donde se encuentra la
+        señal ECG. Solo se usa cuando el archivo es .mat.
+        Para archivos WFDB, este parámetro se ignora.
+        
     led : int (optional)
-                    Derivacion que necesites (0 to 11)
+                      Derivacion que necesites (0 to 11)
+                      
     qrs_detections : str (optional)
-                    Nombre del dict donde se encuentra los indices de los picos R reales
-
+                    Nombre del dict donde se encuentra los indices 
+                    de los picos R reales
     Returns
     --------
     ecg_one_lead : np.ndarray
-                    Vector con la señal ECG (aplanado)
-    picos_reales : np.ndarray
-                    Indices de los picos reales de la ECG
+        Vector unidimensional que contiene la señal ECG en la derivación
+        seleccionada.
+
+    picos_reales : np.ndarray or None
+        Índices de los picos R reales.
+        
     cant_muestras : int
                     Cantidad de muestras del vector
     """
@@ -46,21 +60,62 @@ def Cargar_Ecg(nombre_archivo,val,lead = None,qrs_detections = None):
     mpl.rcParams['figure.figsize'] = (fig_sz_x,fig_sz_y)
     plt.rcParams.update({'font.size':fig_font_size})
     
-    mat_struct = sio.loadmat(nombre_archivo)
+    picos_reales = None
     
-    # Extraer  la señal
-    ecg_one_lead = mat_struct[val].flatten()
-    ecg_one_lead = np.asarray(ecg_one_lead)
+    # Detectar extensión
+    base, ext = os.path.splitext(nombre_archivo)
+    ext = ext.lower()
+    
+    # Si es .mat
+    if ext == '.mat':
+        folder = os.path.dirname(os.path.abspath(__file__))
+        filepath = os.path.join(folder, nombre_archivo)
+        if val is None:
+            raise ValueError(
+                "Archivo .mat detectado pero no se especificó 'val'. "
+                "Debe indicar el nombre de la variable ECG dentro del .mat."
+            )
+
+        mat_struct = sio.loadmat(filepath)
+
+        if val not in mat_struct:
+            raise ValueError(
+                f"La variable '{val}' no existe dentro del archivo .mat. "
+                "Verifique el nombre correcto de la variable."
+                )
+
+        ecg_one_lead = mat_struct[val].flatten()
+        ecg_one_lead = np.asarray(ecg_one_lead)
+
+        if lead is not None:
+            ecg_one_lead = np.asarray(mat_struct[val][lead, :]).flatten()
+        else:
+            ecg_one_lead = np.asarray(mat_struct[val]).flatten()
     
     # Extraer picos reales si los tiene
-    if qrs_detections is not None:
-        picos_reales = mat_struct[qrs_detections].flatten()
+        if qrs_detections is not None:
+            picos_reales = np.asarray(mat_struct[qrs_detections]).flatten()
+        else:
+            picos_reales = None
+
+    # Si es .dat
+    elif ext in ['.hea', '.dat']:
         
-    # Extraer derivaciones si las tiene
-    if lead is not None:
-        ecg_one_lead =  mat_struct[val][lead,:]
-        ecg_one_lead = np.asarray(ecg_one_lead)
+        folder = os.path.dirname(os.path.abspath(__file__))
+        record_name = os.path.splitext(os.path.basename(nombre_archivo))[0]
+        record_path = os.path.join(folder, record_name)
+
+        # Leer señal ECG del archivo WFDB
+        ecg_signal, fields = wfdb.rdsamp(record_path)
         
+        if lead is not None:
+            ecg_one_lead = ecg_signal[:, lead]
+        else:
+            ecg_one_lead = ecg_signal[:, 0]
+
+    else:
+        raise ValueError("Formato no soportado. Use .mat o WFDB (.hea/.dat).")
+    
     #Cantidad de Muestras
     cant_muestras = len(ecg_one_lead)
 
@@ -399,5 +454,4 @@ peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=1000, percentile=30, trgt_width
 Graficar_ecg_detallado(ecg_golay,peaks_R_AIP,fs=1000,time=None)
 VP, VN, FP, FN, conf = Matriz_De_Confusion(peaks_R_AIP, picos_reales, tol=30,cant_muestras = cant_muestras)
 precision, recall, f1, acc = Metricas(conf)
-
 
