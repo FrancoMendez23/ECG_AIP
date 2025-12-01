@@ -2,7 +2,7 @@
 
 Este repositorio contiene un pipeline completo para:
 
-- Cargar señales ECG desde archivos `.mat` (proximamente .dat)
+- Cargar señales ECG desde archivos `.mat` o `.dat`
 - Eliminar componente DC y suavizar la señal mediante un filtro lineal + Savitzky-Golay
 - Detectar picos R usando un detector AIP (Impulsivo Pseudoperiódico)
 - Visualizar el ECG con zoom interactivo + gráfico de Poincaré
@@ -15,7 +15,7 @@ Este repositorio contiene un pipeline completo para:
 El archivo principal (`Deteccion_AIP.py`) incluye:
 
 ### ✔ `Cargar_Ecg`
-Carga señales ECG desde un archivo `.mat`, permitiendo seleccionar derivaciones y extraer picos reales si se incluyen en el dataset.
+Carga señales ECG desde un archivo `.mat`o`.dat`, permitiendo seleccionar derivaciones y extraer picos reales si se incluyen en el dataset.
 
 ### ✔ `Removedor_DC`
 Filtrado de componente DC basado en un filtro lineal de fase lineal de Rick Lions + suavizado Savitzky-Golay.
