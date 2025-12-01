@@ -27,7 +27,6 @@ Detector inspirado en patrones impulsivos pseudoperiódicos:
 - Filtrado bidireccional (`filtfilt`)  
 - Rise detector + umbral por percentil  
 
-
 ### ✔ `Graficar_ecg_detallado`
 Interfaz gráfica interactiva con:
 
@@ -41,32 +40,3 @@ Calcula VP, FP, FN, VN con tolerancia configurable.
 ### ✔ `Metricas`
 Calcula precisión, recall, F1-score y accuracy.
 
----
-
-## 🚀 Ejemplo de uso
-
-```python
-ecg_one_lead, picos_reales, cant_muestras = Cargar_Ecg(
-    'ecg.mat', 'ecg_lead', qrs_detections='qrs_detections'
-)
-
-ecg_golay = Removedor_DC(
-    ecg_one_lead, D=64, N=20,
-    window_length=101, polyorder=9
-)
-
-peaks_R_AIP = Detectar_picos_R_AIP(
-    ecg_golay, fs=1000,
-    percentile=30,
-    trgt_width=0.09,
-    trgt_min_pattern_separation=0.3
-)
-
-Graficar_ecg_detallado(ecg_golay, peaks_R_AIP, fs=1000)
-
-VP, VN, FP, FN, conf = Matriz_De_Confusion(
-    peaks_R_AIP, picos_reales, tol=30,
-    cant_muestras=cant_muestras
-)
-
-precision, recall, f1, acc = Metricas(conf)
