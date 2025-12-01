@@ -1,0 +1,5 @@
+# Requirements
+numpy
+scipy
+matplotlib
+wfdb
