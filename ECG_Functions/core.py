@@ -292,6 +292,7 @@ def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
         time = np.arange(len(ecg)) / fs
 
     fig = plt.figure(figsize=(14, 7))
+    fig.canvas.manager.set_window_title("Picos + Pointcare ECG")
     gs = mgr.GridSpec(2, 2, width_ratios=[2.5, 1])
     ax_full = fig.add_subplot(gs[0, 0])
     ax_zoom = fig.add_subplot(gs[1, 0])

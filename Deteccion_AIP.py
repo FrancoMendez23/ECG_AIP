@@ -1,4 +1,5 @@
 import argparse
+import os
 
 from ECG_Functions import (
     Cargar_Ecg,
@@ -48,4 +49,5 @@ if __name__ == '__main__':
     parser.add_argument('--fs', default=1000.0, type=float, help='Frecuencia de muestreo (Hz)')
     args = parser.parse_args()
 
+    args.file = os.path.join(os.path.dirname(__file__), args.file)
     main(args.file, args.varname, args.lead, args.fs)

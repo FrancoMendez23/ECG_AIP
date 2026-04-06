@@ -31,7 +31,7 @@ Detector inspirado en patrones impulsivos pseudoperiódicos:
 Interfaz gráfica interactiva con:
 
 - ECG completo  
-- ventana ampliada seleccionable con el mouse  
+- Ventana ampliada seleccionable con el mouse  
 - Gráfico de Poincaré (RRₙ vs RRₙ₊₁)
 
 ### ✔ `Matriz_De_Confusion`
