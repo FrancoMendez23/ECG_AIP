@@ -2,13 +2,16 @@
 This package provides tools for processing and analyzing ECG signals.
 """
 __author__ = 'Franco Mendez'
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 from .core import (
     Cargar_Ecg,
     Removedor_DC,
+    Detect_Patron,
+    RF_DC_Rem,
     Detectar_picos_R_AIP,
     Graficar_regiones_ecg,
+    Select_Patron,
     Graficar_ecg_detallado,
     Matriz_De_Confusion,
     Metricas,
@@ -17,6 +20,9 @@ from .core import (
 __all__ = [
     'Cargar_Ecg',
     'Removedor_DC',
+    'RF_DC_Rem',
+    'Select_Patron',
+    'Detect_Patron',
     'Detectar_picos_R_AIP',
     'Graficar_regiones_ecg',
     'Graficar_ecg_detallado',

@@ -136,19 +136,48 @@ def Removedor_DC(ecg, D= 64, N= 20, window_length = 101,
 
     delay = D*N
     ecg_padded = np.pad(ecg, (delay, delay), mode='edge')
-    ECG_filtrado = sig.lfilter(Num, Den, ecg_padded)
-    ECG_Golay = sig.savgol_filter(ECG_filtrado, window_length, polyorder)
+    ECG_Golay = sig.lfilter(Num, Den, ecg_padded)
+    
+    ECG_Golay = sig.savgol_filter(ECG_Golay, window_length, polyorder)
 
     # Recorte final
     ECG_Golay = ECG_Golay[2*delay : 2*delay + len(ecg)]
 
     return ECG_Golay
 
+def RF_DC_Rem(D,N,fs):
+    """
+    Muestra la respuesta en frecuencia del Removedor de continua
+    """
+    Num = np.zeros(2*D*N + 1)
+    Den = np.zeros(2*N + 1)
+
+    # Numerador
+    Num[0] = -1 / D**2
+    Num[D*N - N] = 1
+    Num[D*N] = (2 / D**2 - 2)
+    Num[D*N + N] = 1
+    Num[2*D*N] = -1 / D**2
+
+    # Denominador
+    Den[0] = 1
+    Den[N] = -2
+    Den[2*N] = 1
+    w, h = sig.freqz(Num, Den,worN= 1024, fs=fs)
+
+    # Plot
+    plt.figure()
+    plt.plot(w, 20 * np.log10(abs(h)))
+    plt.title('Respuesta en Frecuencia')
+    plt.xlabel('Frecuencia [HZ]')
+    plt.ylabel('Amplitud [dB]')
+    plt.grid()
+    plt.show()
 
 def Detectar_picos_R_AIP(ecg, fs,
-                         percentile = 30,
-                         trgt_width = 0.06,
-                         trgt_min_pattern_separation = 0.3):
+                        percentile = 30,
+                        trgt_width = 0.06,
+                        trgt_min_pattern_separation = 0.3):
     """Detección de picos R basada en un detector tipo AIP (impulsivo pseudoperiódico).
 
     El detector crea un patrón gaussiano derivado como plantilla, aplica filtrado
@@ -203,7 +232,52 @@ def Detectar_picos_R_AIP(ecg, fs,
 
     return np.array(peaks_R_True, dtype=int)
 
+def Detect_Patron(ecg,pattern,fs,
+                  trgt_width=0.06,
+                  percentile=30,
+                  trgt_min_pattern_separation=0.3):
+    
+    
+    #pattern = pattern.astype(float)
+    #pattern = pattern - np.mean(pattern)
 
+    norm = np.linalg.norm(pattern)
+    if norm > 0:
+        pattern = pattern / norm
+
+    # Filtro adaptado (correlación)
+    detector = sig.filtfilt(pattern[::-1], 1, ecg)
+
+    # Valor absoluto
+    detector = np.abs(detector)
+
+    # Suavizado
+    lp_size = round(1.2 * trgt_width * fs)
+    detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
+    detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
+
+    # Umbral
+    thr = np.percentile(detector, percentile)
+
+    # Búsqueda de máximos
+    min_distance = int(trgt_min_pattern_separation * fs)
+
+    peaks, _ = sig.find_peaks(detector,
+                              height=thr,
+                              distance=min_distance)
+
+    peaks_R_True = []
+    window_half = int(0.05 * fs)
+
+    for pk in peaks:
+        i1 = max(0, pk - window_half)
+        i2 = min(len(ecg), pk + window_half)
+
+        local_peak = i1 + np.argmax(ecg[i1:i2])
+        peaks_R_True.append(local_peak)
+
+    return peaks_R_True, detector
+    
 def Graficar_regiones_ecg(ecg_one_lead_raw, ecg_one_lead_filter,
                           peaks_R, regs_interes, fs_ECG= 1000,
                           fig_sz_x = 10, fig_sz_y= 7, fig_dpi = 100):
@@ -264,7 +338,60 @@ def Graficar_regiones_ecg(ecg_one_lead_raw, ecg_one_lead_filter,
 
         plt.show()
 
+def Select_Patron(ecg,fs, time = None):
+   
+    if time is None:
+        time = np.arange(len(ecg)) / fs
 
+    pattern = None
+
+    fig, (ax_full, ax_zoom) = plt.subplots(2, 1, figsize=(14, 7))
+    fig.canvas.manager.set_window_title("Seleccionar Patrón")
+
+    ax_full.plot(time, ecg, color='gold')
+    ax_full.set_title("Seleccione un patrón arrastrando el mouse")
+    ax_full.set_ylabel("Amplitud")
+    ax_full.grid(True)
+
+    ax_zoom.set_title("Patrón seleccionado")
+    ax_zoom.set_xlabel("Tiempo [s]")
+    ax_zoom.set_ylabel("Amplitud")
+    ax_zoom.grid(True)
+
+    def onselect(xmin, xmax):
+        nonlocal pattern
+
+        indmin, indmax = np.searchsorted(time, (xmin, xmax))
+        indmax = min(len(ecg), indmax)
+
+        if indmax - indmin < 2:
+            return
+
+        pattern = ecg[indmin:indmax].copy()
+
+        ax_zoom.clear()
+        ax_zoom.plot(time[indmin:indmax], pattern, color='red')
+        ax_zoom.set_title(
+            f"Patrón seleccionado ({(indmax-indmin)/fs:.3f} s)"
+        )
+        ax_zoom.set_xlabel("Tiempo [s]")
+        ax_zoom.set_ylabel("Amplitud")
+        ax_zoom.grid(True)
+
+        fig.canvas.draw_idle()
+
+    fig.span = msp.SpanSelector(
+        ax_full,
+        onselect,
+        "horizontal",
+        useblit=True,
+        props=dict(alpha=0.3, facecolor="red")
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+    return pattern
 def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
     """Visualización detallada e interactiva del ECG.
 
