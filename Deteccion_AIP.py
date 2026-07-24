@@ -7,6 +7,7 @@ from ECG_Functions import (
     RF_DC_Rem,
     Select_Patron,
     Detect_Patron,
+    Plot_Detector,
     Detectar_picos_R_AIP,
     Graficar_ecg_detallado,
     Matriz_De_Confusion,
@@ -35,7 +36,7 @@ def main(file, varname, lead, fs):
     RF_DC_Rem(D= 64, N=7, fs =360)
     pattern = Select_Patron(ecg_golay, fs)
     peaks, detector = Detect_Patron(ecg_golay,pattern,fs,percentile=30,trgt_width=0.2,trgt_min_pattern_separation=0.3)
-
+    Plot_Detector(ecg_golay,detector,fs,peaks,thr=30)
 
     #peaks_R_AIP = Detectar_picos_R_AIP(ecg_golay, fs=fs, percentile=30, trgt_width=0.2, trgt_min_pattern_separation=0.3)
     Graficar_ecg_detallado(ecg_golay, peaks, fs=fs, time=None)
@@ -50,10 +51,10 @@ def main(file, varname, lead, fs):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ECG AIP detection')
-    parser.add_argument('--file', '-f', default='01.dat', help='Archivo .mat o registro WFDB (.hea/.dat)')
+    parser.add_argument('--file', '-f', default='ecg.mat', help='Archivo .mat o registro WFDB (.hea/.dat)')
     parser.add_argument('--varname', '-v', default='ecg_lead', help='Nombre de variable dentro de .mat')
     parser.add_argument('--lead', '-l', default=None, type=int, help='Derivacion a usar (int)')
-    parser.add_argument('--fs', default=360, type=float, help='Frecuencia de muestreo (Hz)')
+    parser.add_argument('--fs', default=1000, type=float, help='Frecuencia de muestreo (Hz)')
     args = parser.parse_args()
 
     args.file = os.path.join(os.path.dirname(__file__), args.file)

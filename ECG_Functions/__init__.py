@@ -8,6 +8,7 @@ from .core import (
     Cargar_Ecg,
     Removedor_DC,
     Detect_Patron,
+    Plot_Detector,
     RF_DC_Rem,
     Detectar_picos_R_AIP,
     Graficar_regiones_ecg,

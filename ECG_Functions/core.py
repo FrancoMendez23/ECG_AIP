@@ -277,7 +277,43 @@ def Detect_Patron(ecg,pattern,fs,
         peaks_R_True.append(local_peak)
 
     return peaks_R_True, detector
-    
+
+
+def Plot_Detector(ecg, detector, fs, peaks=None, thr=None, time=None):
+
+    if time is None:
+        time = np.arange(len(ecg)) / fs
+
+    fig, ax1 = plt.subplots(figsize=(15,5))
+
+    # ECG
+    ax1.plot(time, ecg, color='gold', label='ECG')
+    ax1.set_xlabel("Tiempo [s]")
+    ax1.set_ylabel("ECG")
+    ax1.grid(True)
+
+    # Detector
+    ax2 = ax1.twinx()
+    ax2.plot(time, detector, color='blue', linewidth=2, label='Detector')
+
+    if thr is not None:
+        ax2.axhline(thr, color='green', linestyle='--', label='Umbral')
+
+    if peaks is not None:
+        ax2.plot(time[peaks], detector[peaks], 'ro', label='Detecciones')
+
+    ax2.set_ylabel("Detector")
+
+    # Leyenda conjunta
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+
+    plt.title("ECG + Salida del detector")
+    plt.tight_layout()
+    plt.show()
+
 def Graficar_regiones_ecg(ecg_one_lead_raw, ecg_one_lead_filter,
                           peaks_R, regs_interes, fs_ECG= 1000,
                           fig_sz_x = 10, fig_sz_y= 7, fig_dpi = 100):
