@@ -234,21 +234,15 @@ def Detectar_picos_R_AIP(ecg, fs,
 
 def Detect_Patron(ecg,pattern,fs,
                   trgt_width=0.06,
-                  percentile=30,
-                  trgt_min_pattern_separation=0.3):
+                  percentile_min=30,
+                  trgt_min_pattern_separation=0.3,percentile_max=100):
     
+
+    pattern = pattern / np.linalg.norm(pattern)
     
-    #pattern = pattern.astype(float)
-    #pattern = pattern - np.mean(pattern)
-
-    norm = np.linalg.norm(pattern)
-    if norm > 0:
-        pattern = pattern / norm
-
-    # Filtro adaptado (correlación)
     detector = sig.filtfilt(pattern[::-1], 1, ecg)
-
-    # Valor absoluto
+    
+    #Valor absoluto
     detector = np.abs(detector)
 
     # Suavizado
@@ -256,16 +250,23 @@ def Detect_Patron(ecg,pattern,fs,
     detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
     detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
 
-    # Umbral
-    thr = np.percentile(detector, percentile)
+    #Umbral Minimo
+    thr_min = np.percentile(detector, percentile_min)
 
-    # Búsqueda de máximos
+    #Búsqueda de máximos
     min_distance = int(trgt_min_pattern_separation * fs)
 
-    peaks, _ = sig.find_peaks(detector,
-                              height=thr,
+    peaks,properties  = sig.find_peaks(detector,
+                              height=thr_min,
                               distance=min_distance)
-
+    
+    thr_max = None
+    
+    if percentile_max != None:
+        thr_max = np.percentile(properties["peak_heights"], percentile_max)
+        mask = properties["peak_heights"] < thr_max
+        peaks = peaks[mask]
+    
     peaks_R_True = []
     window_half = int(0.05 * fs)
 
@@ -276,41 +277,35 @@ def Detect_Patron(ecg,pattern,fs,
         local_peak = i1 + np.argmax(ecg[i1:i2])
         peaks_R_True.append(local_peak)
 
-    return peaks_R_True, detector
+    return peaks_R_True, detector,thr_min,thr_max
 
 
-def Plot_Detector(ecg, detector, fs, peaks=None, thr=None, time=None):
+def Plot_Detector(ecg, detector, fs, peaks=None, thr_min=None, time=None,thr_max=None):
 
     if time is None:
         time = np.arange(len(ecg)) / fs
 
-    fig, ax1 = plt.subplots(figsize=(15,5))
+    plt.figure(figsize=(15,5))
 
-    # ECG
-    ax1.plot(time, ecg, color='gold', label='ECG')
-    ax1.set_xlabel("Tiempo [s]")
-    ax1.set_ylabel("ECG")
-    ax1.grid(True)
+    plt.plot(time, ecg, color='gold', label='ECG')
 
-    # Detector
-    ax2 = ax1.twinx()
-    ax2.plot(time, detector, color='blue', linewidth=2, label='Detector')
+    plt.plot(time, detector, color='blue', linewidth=2, label='Detector')
 
-    if thr is not None:
-        ax2.axhline(thr, color='green', linestyle='--', label='Umbral')
+    if thr_min is not None:
+        plt.axhline(thr_min, color='green', linestyle='--', linewidth=2, label='Umbral Mínimo')
 
+    if thr_max is not None:
+        plt.axhline(thr_max, color='red', linestyle='--', linewidth=2, label='Umbral Máximo')
+
+    # Detecciones
     if peaks is not None:
-        ax2.plot(time[peaks], detector[peaks], 'ro', label='Detecciones')
+        plt.plot(time[peaks], detector[peaks], 'ro', markersize=7, label='Detecciones')
 
-    ax2.set_ylabel("Detector")
-
-    # Leyenda conjunta
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
-
+    plt.xlabel("Tiempo [s]")
+    plt.ylabel("Amplitud")
     plt.title("ECG + Salida del detector")
+    plt.grid(True)
+    plt.legend()
     plt.tight_layout()
     plt.show()
 
