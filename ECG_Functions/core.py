@@ -89,7 +89,7 @@ def Cargar_Ecg(nombre_archivo, val = None, lead = None,
 
 
 def Removedor_DC(ecg, D= 64, N= 20, window_length = 101,
-                 polyorder = 9):
+                 polyorder = 9,fs=1000,freqz = False):
     """Remueve la componente DC de una señal ECG y realiza suavizado.
 
     Esta función aplica un filtro FIR/IIR diseñado con coeficientes construidos
@@ -142,37 +142,18 @@ def Removedor_DC(ecg, D= 64, N= 20, window_length = 101,
 
     # Recorte final
     ECG_Golay = ECG_Golay[2*delay : 2*delay + len(ecg)]
-
+    
+    if freqz is True:
+        w, h = sig.freqz(Num, Den,worN= 1024, fs=fs)
+        plt.figure()
+        plt.plot(w, 20 * np.log10(abs(h)))
+        plt.title('Respuesta en Frecuencia')
+        plt.xlabel('Frecuencia [HZ]')
+        plt.ylabel('Amplitud [dB]')
+        plt.grid()
+        plt.show()
+        
     return ECG_Golay
-
-def RF_DC_Rem(D,N,fs):
-    """
-    Muestra la respuesta en frecuencia del Removedor de continua
-    """
-    Num = np.zeros(2*D*N + 1)
-    Den = np.zeros(2*N + 1)
-
-    # Numerador
-    Num[0] = -1 / D**2
-    Num[D*N - N] = 1
-    Num[D*N] = (2 / D**2 - 2)
-    Num[D*N + N] = 1
-    Num[2*D*N] = -1 / D**2
-
-    # Denominador
-    Den[0] = 1
-    Den[N] = -2
-    Den[2*N] = 1
-    w, h = sig.freqz(Num, Den,worN= 1024, fs=fs)
-
-    # Plot
-    plt.figure()
-    plt.plot(w, 20 * np.log10(abs(h)))
-    plt.title('Respuesta en Frecuencia')
-    plt.xlabel('Frecuencia [HZ]')
-    plt.ylabel('Amplitud [dB]')
-    plt.grid()
-    plt.show()
 
 def Detectar_picos_R_AIP(ecg, fs,
                         percentile = 30,
@@ -236,18 +217,18 @@ def Detect_Patron(ecg,pattern,fs,
                   trgt_width=0.06,
                   percentile_min=30,
                   trgt_min_pattern_separation=0.3,percentile_max=100):
-    
 
     pattern = pattern / np.linalg.norm(pattern)
     
-    detector = sig.filtfilt(pattern[::-1], 1, ecg)
     
-    #Valor absoluto
-    detector = np.abs(detector)
+    ecg_diff = np.diff(ecg, prepend=ecg[0])
 
+    #detector = sig.filtfilt(pattern, 1, ecg_diff)
+    detector = sig.correlate(ecg,pattern,mode='same',method='auto')
+    
     # Suavizado
     lp_size = round(1.2 * trgt_width * fs)
-    detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
+    detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, np.abs(detector))
     detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
 
     #Umbral Minimo
@@ -255,7 +236,7 @@ def Detect_Patron(ecg,pattern,fs,
 
     #Búsqueda de máximos
     min_distance = int(trgt_min_pattern_separation * fs)
-
+    
     peaks,properties  = sig.find_peaks(detector,
                               height=thr_min,
                               distance=min_distance)
@@ -268,17 +249,15 @@ def Detect_Patron(ecg,pattern,fs,
         peaks = peaks[mask]
     
     peaks_R_True = []
-    window_half = int(0.05 * fs)
+    window_half = int(0.07 * fs)
 
     for pk in peaks:
         i1 = max(0, pk - window_half)
         i2 = min(len(ecg), pk + window_half)
-
         local_peak = i1 + np.argmax(ecg[i1:i2])
         peaks_R_True.append(local_peak)
 
-    return peaks_R_True, detector,thr_min,thr_max
-
+    return peaks_R_True, detector,thr_min,thr_max, peaks
 
 def Plot_Detector(ecg, detector, fs, peaks=None, thr_min=None, time=None,thr_max=None):
 
@@ -305,69 +284,9 @@ def Plot_Detector(ecg, detector, fs, peaks=None, thr_min=None, time=None,thr_max
     plt.ylabel("Amplitud")
     plt.title("ECG + Salida del detector")
     plt.grid(True)
-    plt.legend()
+    plt.legend(loc="upper right")
     plt.tight_layout()
     plt.show()
-
-def Graficar_regiones_ecg(ecg_one_lead_raw, ecg_one_lead_filter,
-                          peaks_R, regs_interes, fs_ECG= 1000,
-                          fig_sz_x = 10, fig_sz_y= 7, fig_dpi = 100):
-    """Grafica regiones de interés (ventanas) del ECG en una figura por región.
-
-    Para cada región de `regs_interes` se genera una figura con la señal original y
-    la señal filtrada, además de marcar los picos R y el número de latidos por minuto (BPM)
-    calculado dentro de esa ventana.
-
-    Parameters
-    ----------
-    ecg_one_lead_raw : np.ndarray
-        Señal ECG original (sin filtrar).
-    ecg_one_lead_filter : np.ndarray
-        Señal ECG filtrada o procesada que se desea visualizar.
-    peaks_R : np.ndarray
-        Índices de picos R detectados en la señal filtrada.
-    regs_interes : iterable
-        Lista o array de regiones de interés. Cada elemento debe contener un par [inicio, fin]
-        en número de muestras que definan la ventana a plotear.
-    fs_ECG : float, optional
-        Frecuencia de muestreo en Hz. Se usa para calcular BPM (por defecto 1000).
-    fig_sz_x, fig_sz_y : int, optional
-        Tamaño (anchura, altura) de la figura en pulgadas (por defecto 10x7).
-    fig_dpi : int, optional
-        DPI de la figura (por defecto 100).
-
-    Returns
-    -------
-    None
-        Esta función solo muestra las figuras mediante Matplotlib (no devuelve objetos).
-    """
-    cant_muestras = len(ecg_one_lead_filter)
-
-    for ii in regs_interes:
-        ii = np.array(ii, dtype=float)
-        zoom_region = np.arange(np.max([0, ii[0]]), np.min([cant_muestras, ii[1]]), dtype='uint')
-
-        plt.figure(figsize=(fig_sz_x, fig_sz_y), dpi=fig_dpi, facecolor='w')
-        plt.plot(zoom_region, ecg_one_lead_raw[zoom_region], label='ECG original', linewidth=1)
-        plt.plot(zoom_region, ecg_one_lead_filter[zoom_region], label='ECG filtrado ', linewidth=2)
-
-        peaks_R_in_region = [p for p in peaks_R if p >= zoom_region[0] and p <= zoom_region[-1]]
-
-        duracion_seg = len(zoom_region) / fs_ECG
-        bpm = len(peaks_R_in_region) * 60 / duracion_seg if duracion_seg > 0 else np.nan
-
-        plt.plot(peaks_R_in_region, ecg_one_lead_filter[peaks_R_in_region], 'ro',
-                 label=f'Picos R ({bpm:.1f} BPM)')
-
-        plt.title(f'ECG desde {ii[0]:.0f} hasta {ii[1]:.0f} muestras')
-        plt.ylabel('Amplitud (adimensional)')
-        plt.xlabel('Muestras (#)')
-
-        axes_hdl = plt.gca()
-        axes_hdl.legend()
-        axes_hdl.set_yticks(())
-
-        plt.show()
 
 def Select_Patron(ecg,fs, time = None):
    
@@ -423,7 +342,7 @@ def Select_Patron(ecg,fs, time = None):
     plt.show()
 
     return pattern
-def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
+def Graficar_ecg_detallado(ecg, peaks_R, fs, zone):
     """Visualización detallada e interactiva del ECG.
 
     Se presenta una figura con tres subplots: el ECG completo, una ventana ampliada
@@ -446,8 +365,7 @@ def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
     None
         La función muestra la figura interactiva con Matplotlib.
     """
-    if time is None:
-        time = np.arange(len(ecg)) / fs
+    time = np.arange(len(ecg)) / fs
 
     fig = plt.figure(figsize=(14, 7))
     fig.canvas.manager.set_window_title("Picos + Pointcare ECG")
@@ -459,6 +377,14 @@ def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
     fig.suptitle("Visualización detallada del ECG con Poincaré", fontsize=16)
 
     ax_full.plot(time, ecg, color='gold')
+    
+    if zone is not None:       
+        window_width = int(fs / 4)
+        half_width = window_width // 2
+        for zone_i in zone:
+            indmin = max(0, zone_i - half_width)
+            indmax = min(len(ecg)-1, zone_i + half_width)
+            ax_full.axvspan(time[indmin],time[indmax],facecolor='red',alpha=0.2)
     if peaks_R is not None:
         ax_full.plot(time[peaks_R], ecg[peaks_R], 'ro', label='Picos R')
 
@@ -469,6 +395,13 @@ def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
     init_end = min(3, time[-1])
     mask = (time >= 0) & (time <= init_end)
     ax_zoom.plot(time[mask], ecg[mask], color='gold')
+    
+    if zone is not None:
+        zoom_zone = [i for i in zone if 0 <= i < len(time) and 0 <= time[i] <= init_end]
+        for zone_i in zoom_zone:
+            indmin = max(0, zone_i - half_width)
+            indmax = min(len(ecg)-1, zone_i + half_width)
+            ax_zoom.axvspan(time[indmin],time[indmax],facecolor='red',alpha=0.2)
     if peaks_R is not None:
         zoom_peaks = [i for i in peaks_R if 0 <= i < len(time) and 0 <= time[i] <= init_end]
         ax_zoom.plot(time[zoom_peaks], ecg[zoom_peaks], 'ro')
@@ -487,6 +420,13 @@ def Graficar_ecg_detallado(ecg, peaks_R, fs, time = None):
 
         ax_zoom.clear()
         ax_zoom.plot(region_t, region_ecg, color='gold')
+        if zone is not None:
+            zoom_zone = [i for i in zone if indmin <= i < indmax]
+            for zone_i in zoom_zone:
+                zone_min = max(indmin, zone_i - half_width)
+                zone_max = min(indmax, zone_i + half_width)
+                ax_zoom.axvspan(time[zone_min],time[zone_max],facecolor='red',alpha=0.2)
+
         if peaks_R is not None:
             zoom_peaks = [i for i in peaks_R if indmin <= i < indmax]
             ax_zoom.plot(time[zoom_peaks], ecg[zoom_peaks], 'ro')
