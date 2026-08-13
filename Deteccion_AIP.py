@@ -33,7 +33,7 @@ def main(file, varname, lead, fs):
 
     ecg_golay = Removedor_DC(ecg_one_lead, D=64, N=7, window_length=19, polyorder=3)
     pattern = Select_Patron(ecg_golay, fs)
-    peaks, detector,thr_min,thr_max, zone = Detect_Patron(ecg_golay,pattern,fs,percentile_min=20,trgt_width= 0.09*2,trgt_min_pattern_separation=0.4,percentile_max=None)
+    peaks, detector,thr_min,thr_max, zone = Detect_Patron(ecg_golay,pattern,fs,percentile_min=20,trgt_width= 0.09,trgt_min_pattern_separation=0.4*1.5,percentile_max=None,derivate = False)
     Plot_Detector(ecg_golay,detector,fs,peaks,thr_min=thr_min,thr_max=thr_max)
     Graficar_ecg_detallado(ecg_golay, peaks, fs=fs,zone=zone)
     
@@ -51,10 +51,10 @@ def main(file, varname, lead, fs):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='ECG AIP detection')
-    parser.add_argument('--file', '-f', default='ecg.mat', help='Archivo .mat o registro WFDB (.hea/.dat)')
+    parser.add_argument('--file', '-f', default='ath_001.dat', help='Archivo .mat o registro WFDB (.hea/.dat)')
     parser.add_argument('--varname', '-v', default='ecg_lead', help='Nombre de variable dentro de .mat')
-    parser.add_argument('--lead', '-l', default=None, type=int, help='Derivacion a usar (int)')
-    parser.add_argument('--fs', default=1000, type=float, help='Frecuencia de muestreo (Hz)')
+    parser.add_argument('--lead', '-l', default = 9, type=int, help='Derivacion a usar (int)')
+    parser.add_argument('--fs', default=500, type=float, help='Frecuencia de muestreo (Hz)')
     args = parser.parse_args()
 
     args.file = os.path.join(os.path.dirname(__file__), args.file)

@@ -216,17 +216,19 @@ def Detectar_picos_R_AIP(ecg, fs,
 def Detect_Patron(ecg,pattern,fs,
                   trgt_width=0.06,
                   percentile_min=30,
-                  trgt_min_pattern_separation=0.3,percentile_max=100):
+                  trgt_min_pattern_separation=0.3,percentile_max=100,derivate = False):
 
     pattern = pattern / np.linalg.norm(pattern)
-    
-    
-    ecg_diff = np.diff(ecg, prepend=ecg[0])
 
-    #detector = sig.filtfilt(pattern, 1, ecg_diff)
-    detector = sig.correlate(ecg,pattern,mode='same',method='auto')
-    
-    # Suavizado
+    if derivate is True:
+        ecg_diff = np.diff(ecg, prepend=ecg[0])
+        detector = sig.correlate(ecg_diff,pattern,mode='same',method='auto')
+    else:
+        fc = 2
+        sos = sig.butter(6,fc,btype='lowpass',fs=fs,output='sos')
+        ecg_lp = sig.sosfiltfilt(sos, ecg)
+        detector = sig.correlate(ecg_lp,pattern,mode='same',method='auto')
+    #Suavizado
     lp_size = round(1.2 * trgt_width * fs)
     detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, np.abs(detector))
     detector = sig.filtfilt(np.ones(lp_size) / lp_size, 1, detector)
